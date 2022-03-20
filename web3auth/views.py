@@ -3,7 +3,7 @@ import random
 import string
 
 from django.conf import settings
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, get_user_model
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, reverse
 from django.urls.exceptions import NoReverseMatch
@@ -44,6 +44,19 @@ def login_api(request):
             if form.is_valid():
                 signature, address = form.cleaned_data.get("signature"), form.cleaned_data.get("address")
                 del request.session['login_token']
+
+                User = get_user_model()
+                # get address field for the user model
+                address_field = app_settings.WEB3AUTH_USER_ADDRESS_FIELD
+                kwargs = {
+                    f"{address_field}__iexact": address
+                }
+                # try to get user with provided address
+                if not User.objects.filter(**kwargs).exists():
+                    User.objects.create(**{
+                        f"{address_field}": address,
+                    })
+
                 user = authenticate(request, token=token, address=address, signature=signature)
                 if user:
                     login(request, user, 'web3auth.backend.Web3Backend')
